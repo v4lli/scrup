@@ -4,6 +4,7 @@
 # Install by putting this file on your web server and give the web server 
 # user write permissions to the directory in which you put this script.
 #
+$SECRET = "secret!"; # Set to "" if you don't want authentication
 $MAXLENGTH = 4096000; # 4 MB
 function rsperr($msg='', $st='400 Bad Request') {
 	header('HTTP/1.1 '.$st);
@@ -21,6 +22,11 @@ $path = pathfromid($id, $suffix);
 $abspath = dirname(realpath(__FILE__)).'/'.$path;
 $url = (isset($_SERVER['HTTPS']) ? 'https://' : 'http://')
 	. $_SERVER['SERVER_NAME'] . dirname($_SERVER['SCRIPT_NAME']) . '/' . $path;
+
+// Check if the secret is correct
+if(!empty($SECRET) && $_SERVER['HTTP_X_SCRUP_AUTH'] != base64_encode($SECRET)) {
+    rsperr("Bad authentication credentials!", "401 Unauthorized");
+}
 
 # make dir if needed
 $dirpath = dirname($abspath);
