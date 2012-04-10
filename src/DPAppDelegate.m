@@ -10,6 +10,11 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+/* For base64 encoding */
+#include <openssl/bio.h>
+#include <openssl/evp.h>
+
+
 #define SCREENSHOT_LOG_LIMIT 10 /* todo: make configurable */
 
 /*@interface NSStatusBar (Unofficial)
@@ -491,6 +496,26 @@ extern int pngcrush_main(int argc, char *argv[]);
 		return;
 	}
 
+	// Check for a secret and base64 encode it
+	NSString *secret = [receiverSecret stringValue];
+	NSString *encodedSecret = NULL;
+	if([secret length] > 0) {
+	    BIO *context = BIO_new(BIO_s_mem());
+
+	    BIO *command = BIO_new(BIO_f_base64());
+	    context = BIO_push(command, context);
+
+	    // Encode all the data
+	    BIO_write(context, [[secret dataUsingEncoding:NSUTF8StringEncoding] bytes], [[secret dataUsingEncoding:NSUTF8StringEncoding] length]);
+	    BIO_flush(context);
+
+	    char *outputBuffer;
+	    long outputLength = BIO_get_mem_data(context, &outputBuffer);
+	    encodedSecret = [NSString stringWithCString:outputBuffer length:outputLength];
+	    BIO_free_all(context);
+	}
+
+
 	// Register
 	NSMutableDictionary *rec = [uploadedScreenshots objectForKey:fn];
 	if (rec) {
@@ -505,6 +530,9 @@ extern int pngcrush_main(int argc, char *argv[]);
 	void (^continue_block)(NSString *) = ^(NSString *actualPath){
 		HTTPPOSTOperation *postOp = [HTTPPOSTOperation alloc];
 		[postOp initWithPath:actualPath URL:url delegate:self];
+		if(encodedSecret != NULL)
+		    [postOp.request setValue:[encodedSecret stringByTrimmingCharactersInSet: [NSCharacterSet whitespaceAndNewlineCharacterSet]] forHTTPHeaderField:@"X-Scrup-Auth"];
+
 		nCurrOps++;
 		[self updateMenuItem:self];
 		[statusItem setImage:iconSending];

@@ -15,6 +15,7 @@
 	IBOutlet NSView *advancedSettingsView;
 	IBOutlet SUUpdater *updater;
 	IBOutlet NSTextField *receiverURL;
+	IBOutlet NSTextField *receiverSecret;
 	IBOutlet NSMenuItem *pauseMenuItem;
 	BOOL openAtLogin,
 		showInDock,
