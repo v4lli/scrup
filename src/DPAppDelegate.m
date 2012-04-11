@@ -158,12 +158,59 @@ extern int pngcrush_main(int argc, char *argv[]);
 	[self performSelectorInBackground:@selector(debugPerpetualStateCheck) withObject:nil];
 	#endif
 
+    /* In order to check for http/https if the secret is set.
+       XXX The user is still not warned if the preferences window is closed without "ending"
+           the input session (because then controlTextDidEndEditing doesn't get called, for some reason */
+    [receiverSecret setDelegate:self];
+    [receiverURL setDelegate:self];
+
 	// XXX
 	/*[self displayPreprocessingUIForScreenshotAtPath:@""
 																						 meta:[NSDictionary dictionaryWithObjectsAndKeys:[NSDate date], @"du", nil]
 																		 confirmBlock:^{
 																			 NSLog(@"confirmBlock called");
 																		 }];*/
+}
+
+-(void) controlTextDidEndEditing:(NSNotification *)aNotification {
+    if([aNotification object] == receiverSecret || [aNotification object] == receiverURL) {
+        /* If we're losing focus because sslAlertEnd switched to receiverURL, don't display another sheet.
+           Also check user preference. */
+        if([mainWindow attachedSheet] != NULL
+           || [defaults boolForKey:@"sslDontAskAgain"]) {
+            return;
+        }
+
+        /* If a secret is set, check if receiverURL contains 'https://' and alert if it doesn't */
+        if(!([[receiverSecret stringValue] isEqualToString:@""] || [[receiverURL stringValue] isEqualToString:@""])) {
+            NSRange matchHTTPS = [[receiverURL stringValue] rangeOfString:@"https://"];
+            if(matchHTTPS.length <= 0) {
+                NSAlert *sslAlert = [[[NSAlert alloc] init] autorelease];
+                [sslAlert setMessageText:@"Security Tip"];
+                [sslAlert setInformativeText:@"Great, you set a secret key! But you should really use a secure connection (SSL, \"https://\") in this case. Otherwise anyone eavesdropping on your connection can easily filter out the key."];
+                [sslAlert addButtonWithTitle:@"Re-Edit Receiver URL ..."];
+                [sslAlert addButtonWithTitle:@"No! Don't ever ask again."];
+                [sslAlert beginSheetModalForWindow:mainWindow modalDelegate:self didEndSelector:@selector(sslAlertEnd:returnCode:contextInfo:) contextInfo:nil];
+            }
+        }
+    }
+}
+
+-(void)sslAlertEnd:(NSWindow *)sheet returnCode:(NSInteger)returnCode contextInfo:(void *)contextInfo {
+    switch(returnCode) {
+        case NSAlertFirstButtonReturn:
+            /* Select the URL field's 'http://' portion */
+            [receiverURL becomeFirstResponder];
+            NSText* textEditor = [mainWindow fieldEditor:YES forObject:receiverURL];
+            NSRange range = {0, 7};
+            [textEditor setSelectedRange:range];
+
+            break;
+        case NSAlertSecondButtonReturn:
+            [defaults setBool:YES forKey:@"sslDontAskAgain"];
+            break;
+    }
+    return;
 }
 
 
