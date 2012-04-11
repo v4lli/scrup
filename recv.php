@@ -4,8 +4,9 @@
 # Install by putting this file on your web server and give the web server 
 # user write permissions to the directory in which you put this script.
 #
-$SECRET = "secret!"; # Set to "" if you don't want authentication
+$SECRET = ""; # Set to "" if you don't want authentication
 $MAXLENGTH = 4096000; # 4 MB
+$HTTP_LINK = true; # Set to true if you want all image links to point to the unsecure version
 function rsperr($msg='', $st='400 Bad Request') {
 	header('HTTP/1.1 '.$st);
 	exit($msg);	
@@ -20,7 +21,7 @@ $id = substr(base_convert(md5($_GET['name'].' '.$_SERVER['REMOTE_ADDR']), 16, 36
 $suffix = strrchr($_GET['name'], '.');
 $path = pathfromid($id, $suffix);
 $abspath = dirname(realpath(__FILE__)).'/'.$path;
-$url = (isset($_SERVER['HTTPS']) ? 'https://' : 'http://')
+$url = (isset($_SERVER['HTTPS'] && $HTTP_LINK != true) ? 'https://' : 'http://')
 	. $_SERVER['SERVER_NAME'] . dirname($_SERVER['SCRIPT_NAME']) . '/' . $path;
 
 // Check if the secret is correct
